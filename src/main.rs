@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use embedded_can::Frame;
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{Adc, AdcConfig, Attenuation},
@@ -56,7 +57,8 @@ fn main() -> ! {
                                                                             //frame
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
         println!("Sent Frame!");
-        let response = nb::block!(can.receive()).unwrap(); //wait for frame to come in
-        println!("Recieved Frame : {response:?}");
+        let response = nb::block!(can.receive()).unwrap();
+        let response_data = response.data();
+        println!("Recieved Frame : {response_data:?}");
     }
 }

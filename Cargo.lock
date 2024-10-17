@@ -808,6 +808,7 @@ dependencies = [
 name = "sus-mod-no-std"
 version = "0.1.0"
 dependencies = [
+ "embedded-can",
  "esp-backtrace",
  "esp-hal",
  "esp-println",
