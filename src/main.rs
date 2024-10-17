@@ -24,13 +24,17 @@ fn main() -> ! {
     let can_rx_pin = can_tx_pin.peripheral_input(); //loopback for testing
 
     //change to normal mode and construct to new
-    let can_config = twai::TwaiConfiguration::new_no_transceiver(
+    let mut can_config = twai::TwaiConfiguration::new_no_transceiver(
         peripherals.TWAI0,
         can_rx_pin,
         can_tx_pin,
         CAN_BAUDRATE,
         TwaiMode::SelfTest,
     );
+
+    let can_filter = SingleStandardFilter::new(b"xxxxxxxxxxx", b"x", [b"xxxxxxxx", b"xxxxxxxx"]);
+
+    can_config.set_filter(can_filter);
 
     let mut can = can_config.start();
 
@@ -39,17 +43,20 @@ fn main() -> ! {
     let mut adc1_config = AdcConfig::new();
     let mut adc1_pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation0dB);
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
+
     //let delay = Delay::new();
 
     esp_println::logger::init_logger_from_env();
 
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
-        println!("{}", pin_value);
-        let sendable_value = pin_value.to_be_bytes();
-        let frame = EspTwaiFrame::new(device_id, &sendable_value).unwrap();
-        nb::block!(can.transmit(&frame)).unwrap();
+        println!("{}", pin_value); //read ADC
+        let sendable_value = pin_value.to_be_bytes(); //convert to bytes
+        let frame = EspTwaiFrame::new(device_id, &sendable_value).unwrap(); //create
+                                                                            //frame
+        nb::block!(can.transmit(&frame)).unwrap(); //transmit
         println!("Sent Frame!");
-        //TODO: read from RX to make sure sending is all good on the ESP's end
+        let response = nb::block!(can.receive()).unwrap(); //wait for frame to come in
+        println!("Recieved Frame : {response:?}");
     }
 }
