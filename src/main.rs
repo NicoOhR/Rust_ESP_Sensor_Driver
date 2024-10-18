@@ -18,7 +18,11 @@ const CAN_BAUDRATE: twai::BaudRate = twai::BaudRate::B250K;
 #[entry]
 fn main() -> ! {
     #[allow(unused)]
-    let peripherals = esp_hal::init(esp_hal::Config::default());
+    let mut config = esp_hal::Config::default();
+
+    config.cpu_clock = CpuClock::max();
+    println!("CPU speed: {}", config.cpu_clock.mhz());
+    let peripherals = esp_hal::init(config);
 
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let analog_pin = io.pins.gpio3;
@@ -46,7 +50,6 @@ fn main() -> ! {
     let pcnt = Pcnt::new(peripherals.PCNT);
     let u0 = pcnt.unit0;
     u0.set_high_limit(Some(255)).unwrap();
-    u0.set_low_limit(Some(0)).unwrap();
     u0.set_filter(Some(min(10u16 * 80, 1023u16))).unwrap();
     u0.clear();
     let ch0 = &u0.channel0;
@@ -60,24 +63,22 @@ fn main() -> ! {
     let mut adc1_pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation0dB);
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
-    //let delay = Delay::new();
-
     esp_println::logger::init_logger_from_env();
 
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
-        println!("{}", pin_value); //read ADC
+        println!("ADC value: {}", pin_value); //read ADC
 
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
         println!("Sent Frame!");
 
-        let response = nb::block!(can.receive()).unwrap();
-        let response_data = response.data();
-        println!("Recieved Frame : {response_data:?}");
-
         let counter = u0.counter.clone();
         println!("Pulses this cycle: {}", counter.get());
+
+        //let response = nb::block!(can.receive()).unwrap();
+        //let response_data = response.data();
+        //println!("Recieved Frame : {response_data:?}");
     }
 }
