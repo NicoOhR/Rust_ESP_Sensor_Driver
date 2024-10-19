@@ -1,4 +1,6 @@
+set shell := ["fish", "-c"]
+
 build:
-  source $HOME/scripts/export-esp.sh
+  . $HOME/scripts/export-esp.sh
   cargo build --release
 

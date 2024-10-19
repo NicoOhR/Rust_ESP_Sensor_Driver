@@ -31,7 +31,7 @@ fn main() -> ! {
     let can_rx_pin = can_tx_pin.peripheral_input(); //loopback for testing
 
     //change to normal mode and construct to new
-    let mut can_config = twai::TwaiConfiguration::new_no_transceiver(
+    let mut can_config = twai::TwaiConfiguration::new(
         peripherals.TWAI0,
         can_rx_pin,
         can_tx_pin,
@@ -70,15 +70,15 @@ fn main() -> ! {
         println!("ADC value: {}", pin_value); //read ADC
 
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
-        let frame = EspTwaiFrame::new(device_id, &sendable_value).unwrap();
+        let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
         println!("Sent Frame!");
 
         let counter = u0.counter.clone();
         println!("Pulses this cycle: {}", counter.get());
 
-        //let response = nb::block!(can.receive()).unwrap();
-        //let response_data = response.data();
-        //println!("Recieved Frame : {response_data:?}");
+        let response = nb::block!(can.receive()).unwrap();
+        let response_data = response.data();
+        println!("Recieved Frame : {response_data:?}");
     }
 }
