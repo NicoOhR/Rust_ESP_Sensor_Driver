@@ -68,17 +68,17 @@ fn main() -> ! {
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
         println!("ADC value: {}", pin_value); //read ADC
-
+                                              //ground on board ~ 1800, limiting range rather heavily
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
-                                                   //println!("Sent Frame!");
+        println!("Sent Frame!");
 
         let counter = u0.counter.clone();
-        //println!("Pulses this cycle: {}", counter.get());
+        println!("Pulses this cycle: {}", counter.get());
 
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
-        //println!("Recieved Frame : {response_data:?}");
+        println!("Recieved Frame : {response_data:?}");
     }
 }
