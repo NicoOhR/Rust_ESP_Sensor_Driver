@@ -3,16 +3,16 @@ effect sensor and a linear potentiometer and spit back to the CAN bus.
 
 
 ## Testing
-- [] ADC 
-    - [] with potentiometer
-    - [] with chosen linpot
-    - [] with external adc
-- [] CAN/TWAI
+- [ ] ADC 
+    - [ ] with potentiometer
+    - [ ] with chosen linpot
+    - [ ] with external adc
+- [ ] CAN/TWAI
     - [x] Self test 
-    - [] with transceiver
-    - [] on the Pi
-- [] PCNT
-    - [] with arbitrary digital signal
-    - [] with wheel speed sensor
-- [] Filtering
-    - [] highkey idk
+    - [ ] with transceiver
+    - [ ] on the Pi
+- [ ] PCNT
+    - [ ] with arbitrary digital signal
+    - [ ] with wheel speed sensor
+- [ ] Filtering
+    - [ ] highkey idk
