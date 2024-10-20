@@ -4,11 +4,11 @@ effect sensor and a linear potentiometer and spit back to the CAN bus.
 
 ## Testing
 - [ ] ADC 
-    - [ ] with potentiometer
+    - [x] with potentiometer
     - [ ] with chosen linpot
     - [ ] with external adc
 - [ ] CAN/TWAI
-    - [x] Self test 
+    - [x] Self test (loopback)
     - [ ] with transceiver
     - [ ] on the Pi
 - [ ] PCNT
