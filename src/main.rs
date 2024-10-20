@@ -60,7 +60,7 @@ fn main() -> ! {
     u0.resume();
 
     let mut adc1_config = AdcConfig::new();
-    let mut adc1_pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation0dB);
+    let mut adc1_pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation11dB);
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
     esp_println::logger::init_logger_from_env();
@@ -72,13 +72,13 @@ fn main() -> ! {
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
-        println!("Sent Frame!");
+                                                   //println!("Sent Frame!");
 
         let counter = u0.counter.clone();
-        println!("Pulses this cycle: {}", counter.get());
+        //println!("Pulses this cycle: {}", counter.get());
 
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
-        println!("Recieved Frame : {response_data:?}");
+        //println!("Recieved Frame : {response_data:?}");
     }
 }
