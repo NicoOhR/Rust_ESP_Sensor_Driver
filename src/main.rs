@@ -5,7 +5,7 @@ use core::cmp::min;
 use embedded_can::Frame;
 use esp_backtrace as _;
 use esp_hal::{
-    analog::adc::{Adc, AdcConfig, Attenuation},
+    analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
     gpio::{Input, Io, Pull},
     pcnt::{channel, Pcnt},
     prelude::*,
@@ -23,9 +23,14 @@ fn main() -> ! {
     config.cpu_clock = CpuClock::max();
     println!("CPU speed: {}", config.cpu_clock.mhz());
     let peripherals = esp_hal::init(config);
-
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+
+    type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
     let analog_pin = io.pins.gpio3;
+    let mut adc1_config = AdcConfig::new();
+    let mut adc1_pin =
+        adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::Attenuation11dB);
+    let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
     let can_tx_pin = io.pins.gpio2;
     let can_rx_pin = can_tx_pin.peripheral_input(); //loopback for testing
@@ -59,10 +64,6 @@ fn main() -> ! {
     u0.listen();
     u0.resume();
 
-    let mut adc1_config = AdcConfig::new();
-    let mut adc1_pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation11dB);
-    let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
-
     esp_println::logger::init_logger_from_env();
 
     loop {
@@ -72,13 +73,13 @@ fn main() -> ! {
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
-        println!("Sent Frame!");
+                                                   //println!("Sent Frame!");
 
         let counter = u0.counter.clone();
-        println!("Pulses this cycle: {}", counter.get());
+        //println!("Pulses this cycle: {}", counter.get());
 
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
-        println!("Recieved Frame : {response_data:?}");
+        //println!("Recieved Frame : {response_data:?}");
     }
 }
