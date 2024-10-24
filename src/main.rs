@@ -76,14 +76,14 @@ fn main() -> ! {
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
                                                    //println!("Sent Frame!");
-        for _ in 0..10 {
+        for _ in 0..5 {
             test_gpio.toggle();
             println!("Level: {:?}", test_gpio.get_output_level());
         }
 
         let counter = u0.counter.clone();
         println!("Pulses this cycle: {}", counter.get());
-
+        u0.clear();
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
         //println!("Recieved Frame : {response_data:?}");
