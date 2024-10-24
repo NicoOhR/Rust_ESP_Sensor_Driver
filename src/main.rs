@@ -6,7 +6,7 @@ use embedded_can::Frame;
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
-    gpio::{Input, Io, Pull},
+    gpio::{Input, Io, Level, Output, Pull},
     pcnt::{channel, Pcnt},
     prelude::*,
     twai::{self, filter::SingleStandardFilter, EspTwaiFrame, StandardId, TwaiMode},
@@ -24,6 +24,8 @@ fn main() -> ! {
     println!("CPU speed: {}", config.cpu_clock.mhz());
     let peripherals = esp_hal::init(config);
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+
+    let mut test_gpio = Output::new(io.pins.gpio9, Level::High);
 
     type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
     let analog_pin = io.pins.gpio3;
@@ -68,15 +70,19 @@ fn main() -> ! {
 
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
-        println!("ADC value: {}", pin_value); //read ADC
-                                              //ground on board ~ 1800, limiting range rather heavily
+        //println!("ADC value: {}", pin_value); //read ADC
+        //ground on board ~ 1800, limiting range rather heavily
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
                                                    //println!("Sent Frame!");
+        for _ in 0..10 {
+            test_gpio.toggle();
+            println!("Level: {:?}", test_gpio.get_output_level());
+        }
 
         let counter = u0.counter.clone();
-        //println!("Pulses this cycle: {}", counter.get());
+        println!("Pulses this cycle: {}", counter.get());
 
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
