@@ -1,5 +1,4 @@
-Sensor driver based on the esp32-s3, currently aiming to support a Hall
-effect sensor and a linear potentiometer and spit back to the CAN bus.
+Sensor driver based on the esp32-s3, currently aiming to support a Hall effect sensor and a linear potentiometer and spit back to the CAN bus.
 
 
 ## Testing
@@ -12,7 +11,10 @@ effect sensor and a linear potentiometer and spit back to the CAN bus.
     - [ ] with transceiver
     - [ ] on the Pi
 - [ ] PCNT
-    - [ ] with arbitrary digital signal
+    - [x] with arbitrary digital signal
     - [ ] with wheel speed sensor
 - [ ] Filtering
     - [ ] highkey idk
+- [ ] timing
+    - [x] benchmark at 100hz (9.5 kus left over)
+    - [ ] try to go faster

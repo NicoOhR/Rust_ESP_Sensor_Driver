@@ -9,9 +9,13 @@ use esp_hal::{
     gpio::{Input, Io, Level, Output, Pull},
     pcnt::{channel, Pcnt},
     prelude::*,
+    time,
+    time::*,
+    timer::*,
     twai::{self, filter::SingleStandardFilter, EspTwaiFrame, StandardId, TwaiMode},
 };
 use esp_println::println;
+use timg::TimerGroup;
 
 const CAN_BAUDRATE: twai::BaudRate = twai::BaudRate::B250K;
 
@@ -68,24 +72,29 @@ fn main() -> ! {
 
     esp_println::logger::init_logger_from_env();
 
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+    let mut periodic = PeriodicTimer::new(timg0.timer0);
+    let _ = periodic.start(10000.micros());
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
         //println!("ADC value: {}", pin_value); //read ADC
-        //ground on board ~ 1800, limiting range rather heavily
         let sendable_value = pin_value.to_be_bytes(); //convert to bytes
         let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
         nb::block!(can.transmit(&frame)).unwrap(); //transmit
                                                    //println!("Sent Frame!");
         for _ in 0..5 {
-            test_gpio.toggle();
-            println!("Level: {:?}", test_gpio.get_output_level());
+            test_gpio.toggle(); //testing PCNT
         }
 
         let counter = u0.counter.clone();
-        println!("Pulses this cycle: {}", counter.get());
+        //println!("Pulses this cycle: {}", counter.get());
         u0.clear();
         let response = nb::block!(can.receive()).unwrap();
         let response_data = response.data();
         //println!("Recieved Frame : {response_data:?}");
+        let start = time::now();
+        let _ = nb::block!(periodic.wait());
+        let end = time::now();
+        println!("{:?}", end - start); //comes out to be about 9500 uS of extra compute time
     }
 }
