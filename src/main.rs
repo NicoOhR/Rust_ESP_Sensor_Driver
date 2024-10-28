@@ -5,12 +5,11 @@ use core::cmp::min;
 use embedded_can::Frame;
 use esp_backtrace as _;
 use esp_hal::{
-    analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
+    analog::adc::{Adc, AdcConfig, Attenuation},
     gpio::{Input, Io, Level, Output, Pull},
     pcnt::{channel, Pcnt},
     prelude::*,
     time,
-    time::*,
     timer::*,
     twai::{self, filter::SingleStandardFilter, EspTwaiFrame, StandardId, TwaiMode},
 };
