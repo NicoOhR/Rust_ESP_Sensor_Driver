@@ -60,11 +60,11 @@ fn main() -> ! {
 
     let pcnt = Pcnt::new(peripherals.PCNT);
     let u0 = pcnt.unit0;
+    let ch0 = &u0.channel0;
+    let wheel_speed_sensor = Input::new(io.pins.gpio4, Pull::Up);
     u0.set_high_limit(Some(255)).unwrap();
     u0.set_filter(Some(min(10u16 * 80, 1023u16))).unwrap();
     u0.clear();
-    let ch0 = &u0.channel0;
-    let wheel_speed_sensor = Input::new(io.pins.gpio4, Pull::Up);
     ch0.set_edge_signal(wheel_speed_sensor.peripheral_input());
     ch0.set_input_mode(channel::EdgeMode::Increment, channel::EdgeMode::Hold);
     u0.listen();
@@ -74,24 +74,21 @@ fn main() -> ! {
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut periodic = PeriodicTimer::new(timg0.timer0);
-    let _ = periodic.start(10000.micros());
+    let _ = periodic.start(10000.micros()); //period of 100hz cycle
     loop {
+        let mut can_data: [u8; 8] = [0; 8];
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
-        //println!("ADC value: {}", pin_value); //read ADC
-        let sendable_value = pin_value.to_be_bytes(); //convert to bytes
-        let frame = EspTwaiFrame::new_self_reception(device_id, &sendable_value).unwrap();
-        nb::block!(can.transmit(&frame)).unwrap(); //transmit
-                                                   //println!("Sent Frame!");
         for _ in 0..5 {
             test_gpio.toggle(); //testing PCNT
         }
 
-        let counter = u0.counter.clone();
-        //println!("Pulses this cycle: {}", counter.get());
+        can_data[..2].copy_from_slice(&pin_value.to_be_bytes());
+        can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
         u0.clear();
-        let response = nb::block!(can.receive()).unwrap();
-        let response_data = response.data();
-        //println!("Recieved Frame : {response_data:?}");
+
+        let frame = EspTwaiFrame::new_self_reception(device_id, &can_data).unwrap();
+        nb::block!(can.transmit(&frame)).unwrap();
+
         let start = time::now();
         let _ = nb::block!(periodic.wait());
         let end = time::now();
