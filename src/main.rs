@@ -61,6 +61,7 @@ fn main() -> ! {
     let u0 = pcnt.unit0;
     let ch0 = &u0.channel0;
     let wheel_speed_sensor = Input::new(io.pins.gpio4, Pull::Up);
+
     u0.set_high_limit(Some(255)).unwrap();
     u0.set_filter(Some(min(10u16 * 80, 1023u16))).unwrap();
     u0.clear();
@@ -74,9 +75,14 @@ fn main() -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut periodic = PeriodicTimer::new(timg0.timer0);
     let _ = periodic.start(10000.micros()); //period of 100hz cycle
+    let mut can_data: [u8; 8] = [0; 8];
+    let mut pin_value: u16;
+
+    let mut start: esp_hal::time::Instant;
+    let mut end: esp_hal::time::Instant;
+    let mut frame: EspTwaiFrame;
     loop {
-        let mut can_data: [u8; 8] = [0; 8];
-        let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
+        pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
         for _ in 0..5 {
             test_gpio.toggle(); //testing PCNT
         }
@@ -85,12 +91,13 @@ fn main() -> ! {
         can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
         u0.clear();
 
-        let frame = EspTwaiFrame::new_self_reception(device_id, &can_data).unwrap();
+        frame = EspTwaiFrame::new_self_reception(device_id, &can_data).unwrap();
         nb::block!(can.transmit(&frame)).unwrap();
 
-        let start = time::now();
+        start = time::now();
         let _ = nb::block!(periodic.wait());
-        let end = time::now();
-        println!("{:?}", end - start); //comes out to be about 9500 uS of extra compute time
+        end = time::now();
+        println!("{}", end - start);
+        //average of 9878.17 us of extra computational time
     }
 }
