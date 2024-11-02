@@ -2,13 +2,15 @@
 #![no_main]
 
 use core::cmp::min;
-use embedded_can::Frame;
 use esp_backtrace as _;
+use esp_hal::dma_buffers;
 use esp_hal::{
     analog::adc::{Adc, AdcConfig, Attenuation},
+    dma::{Dma, DmaPriority, DmaRxBuf, DmaTxBuf},
     gpio::{Input, Io, Level, Output, Pull},
     pcnt::{channel, Pcnt},
     prelude::*,
+    spi::{master::Spi, master::SpiDmaBus, SpiMode},
     time,
     timer::*,
     twai::{self, filter::SingleStandardFilter, EspTwaiFrame, StandardId, TwaiMode},
@@ -24,12 +26,32 @@ fn main() -> ! {
     let mut config = esp_hal::Config::default();
 
     config.cpu_clock = CpuClock::max();
-    println!("CPU speed: {}", config.cpu_clock.mhz());
     let peripherals = esp_hal::init(config);
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
+    //SPI and DMA config
+    let sclk = io.pins.gpio0;
+    let miso = io.pins.gpio6;
+    let mosi = io.pins.gpio8;
+    let cs = io.pins.gpio5;
+    let dma = Dma::new(peripherals.DMA);
+    let dma_channel = dma.channel0;
+    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(32000);
+    let mut dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
+    let mut dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
+
+    let mut spi = Spi::new(peripherals.SPI2, 100.kHz(), SpiMode::Mode0)
+        .with_sck(sclk)
+        .with_mosi(mosi)
+        .with_miso(miso)
+        .with_cs(cs)
+        .with_dma(dma_channel.configure(false, DmaPriority::Priority0))
+        .with_buffers(dma_rx_buf, dma_tx_buf);
+
+    // test input for the PCNT
     let mut test_gpio = Output::new(io.pins.gpio9, Level::High);
 
+    //ADC Configuration
     type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
     let analog_pin = io.pins.gpio3;
     let mut adc1_config = AdcConfig::new();
@@ -37,6 +59,7 @@ fn main() -> ! {
         adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::Attenuation11dB);
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
+    //CAN configuration
     let can_tx_pin = io.pins.gpio2;
     let can_rx_pin = can_tx_pin.peripheral_input(); //loopback for testing
 
@@ -57,6 +80,7 @@ fn main() -> ! {
 
     let device_id = StandardId::new(0x12).unwrap(); //make ID into env var
 
+    //PCNT Configuration
     let pcnt = Pcnt::new(peripherals.PCNT);
     let u0 = pcnt.unit0;
     let ch0 = &u0.channel0;
@@ -72,20 +96,30 @@ fn main() -> ! {
 
     esp_println::logger::init_logger_from_env();
 
+    //Timer Config
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut periodic = PeriodicTimer::new(timg0.timer0);
     let _ = periodic.start(10000.micros()); //period of 100hz cycle
+
+    //Variables for the hyperloop
     let mut can_data: [u8; 8] = [0; 8];
     let mut pin_value: u16;
 
     let mut start: esp_hal::time::Instant;
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
+
+    let test_tx_buffer: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+    let mut test_rx_buffer: [u8; 8] = [0; 8];
+
     loop {
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
         for _ in 0..5 {
             test_gpio.toggle(); //testing PCNT
         }
+
+        let _ = spi.transfer(&mut test_rx_buffer, &test_tx_buffer);
+        println!("{:?}", test_rx_buffer);
 
         can_data[..2].copy_from_slice(&pin_value.to_be_bytes());
         can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
@@ -99,5 +133,6 @@ fn main() -> ! {
         end = time::now();
         println!("{}", end - start);
         //average of 9878.17 us of extra computational time
+        //8000 us with DMA
     }
 }
