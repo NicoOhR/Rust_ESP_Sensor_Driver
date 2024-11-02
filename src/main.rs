@@ -109,8 +109,13 @@ fn main() -> ! {
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
 
-    let test_tx_buffer: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
-    let mut test_rx_buffer: [u8; 8] = [0; 8];
+    const K_SAMPLES: usize = 1000;
+
+    let mut test_tx_buffer: [u8; K_SAMPLES] = [0; K_SAMPLES];
+    for i in 1..K_SAMPLES {
+        test_tx_buffer[i] = i as u8 % 255;
+    }
+    let mut test_rx_buffer: [u8; K_SAMPLES] = [0; K_SAMPLES];
 
     loop {
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
@@ -119,7 +124,6 @@ fn main() -> ! {
         }
 
         let _ = spi.transfer(&mut test_rx_buffer, &test_tx_buffer);
-        println!("{:?}", test_rx_buffer);
 
         can_data[..2].copy_from_slice(&pin_value.to_be_bytes());
         can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
@@ -133,6 +137,5 @@ fn main() -> ! {
         end = time::now();
         println!("{}", end - start);
         //average of 9878.17 us of extra computational time
-        //8000 us with DMA
     }
 }
