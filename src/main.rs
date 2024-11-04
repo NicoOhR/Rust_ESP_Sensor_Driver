@@ -45,8 +45,7 @@ fn main() -> ! {
         .with_mosi(mosi)
         .with_miso(miso)
         .with_cs(cs)
-        .with_dma(dma_channel.configure(false, DmaPriority::Priority0))
-        .with_buffers(dma_rx_buf, dma_tx_buf);
+        .with_dma(dma_channel.configure(false, DmaPriority::Priority0));
 
     // test input for the PCNT
     let mut test_gpio = Output::new(io.pins.gpio9, Level::High);
@@ -109,13 +108,11 @@ fn main() -> ! {
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
 
-    const K_SAMPLES: usize = 1000;
+    let mut i = 0;
 
-    let mut test_tx_buffer: [u8; K_SAMPLES] = [0; K_SAMPLES];
-    for i in 1..K_SAMPLES {
-        test_tx_buffer[i] = i as u8 % 255;
+    for (i, v) in dma_tx_buf.as_mut_slice().iter_mut().enumerate() {
+        *v = (i % 255) as u8;
     }
-    let mut test_rx_buffer: [u8; K_SAMPLES] = [0; K_SAMPLES];
 
     loop {
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
@@ -123,14 +120,26 @@ fn main() -> ! {
             test_gpio.toggle(); //testing PCNT
         }
 
-        let _ = spi.transfer(&mut test_rx_buffer, &test_tx_buffer);
-
+        let transfer = spi
+            .dma_transfer(dma_rx_buf, dma_tx_buf)
+            .map_err(|e| e.0)
+            .unwrap();
         can_data[..2].copy_from_slice(&pin_value.to_be_bytes());
         can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
         u0.clear();
 
         frame = EspTwaiFrame::new_self_reception(device_id, &can_data).unwrap();
         nb::block!(can.transmit(&frame)).unwrap();
+
+        start = time::now();
+        (spi, (dma_rx_buf, dma_tx_buf)) = transfer.wait();
+        println!(
+            "{:x?} .. {:x?}",
+            &dma_rx_buf.as_slice()[..10],
+            &dma_rx_buf.as_slice().last_chunk::<10>().unwrap()
+        );
+        end = time::now();
+        println!("{}", end - start);
 
         start = time::now();
         let _ = nb::block!(periodic.wait());
