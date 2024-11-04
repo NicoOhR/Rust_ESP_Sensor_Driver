@@ -104,31 +104,32 @@ fn main() -> ! {
     //Variables for the hyperloop
     let mut can_data: [u8; 8] = [0; 8];
     let mut pin_value: u16;
-    let mut adc_dma_buffer: [u8; 100] = [0; 100]; //50 samples of the external ADC
     let mut start: esp_hal::time::Instant;
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
+    let mut extern_adc_value: [u8; 2] = [0; 2];
 
     loop {
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
+        spi.read(&mut extern_adc_value).unwrap();
+
         for _ in 0..5 {
             test_gpio.toggle(); //testing PCNT
         }
 
         can_data[..2].copy_from_slice(&pin_value.to_be_bytes());
         can_data[2..4].copy_from_slice(&u0.counter.clone().get().to_be_bytes());
-        u0.clear();
+        can_data[4..6].copy_from_slice(&extern_adc_value);
 
         frame = EspTwaiFrame::new_self_reception(device_id, &can_data).unwrap();
         nb::block!(can.transmit(&frame)).unwrap();
 
-        let _ = spi.read(&mut adc_dma_buffer); //slows down to 1100 us of extra time
+        u0.clear();
 
         start = time::now();
         let _ = nb::block!(periodic.wait());
         end = time::now();
         println!("{}", end - start);
         //average of 9878.17 us of extra computational time
-        //without SPI
     }
 }

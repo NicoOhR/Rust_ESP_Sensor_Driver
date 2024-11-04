@@ -18,3 +18,7 @@ Sensor driver based on the esp32-s3, currently aiming to support a Hall effect s
 - [ ] timing
     - [x] benchmark at 100hz (9.5 kus left over)
     - [ ] try to go faster
+- [ ] IMU
+    - [ ] read in loop back via I2C
+    - [ ] read from IMU
+    - [ ] basic filtering
