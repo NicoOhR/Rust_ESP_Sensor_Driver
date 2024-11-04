@@ -5,7 +5,7 @@ Sensor driver based on the esp32-s3, currently aiming to support a Hall effect s
 - [ ] ADC 
     - [x] with potentiometer
     - [ ] with chosen linpot
-    - [ ] with external adc
+    - [ ] ~~with external adc~~
 - [ ] CAN/TWAI
     - [x] Self test (loopback)
     - [ ] with transceiver
@@ -20,5 +20,6 @@ Sensor driver based on the esp32-s3, currently aiming to support a Hall effect s
     - [ ] try to go faster
 - [ ] IMU
     - [ ] read in loop back via I2C
+        - [ ] verify with DLHR-L10D
     - [ ] read from IMU
     - [ ] basic filtering
