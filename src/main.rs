@@ -114,8 +114,8 @@ fn main() -> ! {
     let mut dlhr_data: [u8; 8] = [0; 8];
     loop {
         //read single shot of data from the DLHR
-        let _ = i2c.write_read(41, &[0xAA], &mut dlhr_data);
-
+        let _ = i2c.write_read(41, &[0xAC], &mut dlhr_data);
+        println!("{:?}", &dlhr_data);
         frame = EspTwaiFrame::new_self_reception(device_id, &dlhr_data).unwrap();
         nb::block!(can.transmit(&frame)).unwrap();
 
@@ -138,6 +138,6 @@ fn main() -> ! {
         start = time::now();
         let _ = nb::block!(periodic.wait());
         end = time::now();
-        println!("{}", end - start);
+        //println!("{}", end - start);
     }
 }
