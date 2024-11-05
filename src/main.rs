@@ -8,6 +8,7 @@ use esp_hal::{
     analog::adc::{Adc, AdcConfig, Attenuation},
     dma::{Dma, DmaPriority, DmaRxBuf, DmaTxBuf},
     gpio::{Input, Io, Level, Output, Pull},
+    i2c::*,
     pcnt::{channel, Pcnt},
     prelude::*,
     spi::{master::Spi, master::SpiDmaBus, SpiMode},
@@ -28,6 +29,8 @@ fn main() -> ! {
     config.cpu_clock = CpuClock::max();
     let peripherals = esp_hal::init(config);
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+
+    let mut i2c = I2c::new(peripherals.I2C0, io.pins.gpio11, io.pins.gpio10, 100.kHz());
 
     //SPI and DMA config
     let sclk = io.pins.gpio0;
@@ -108,8 +111,14 @@ fn main() -> ! {
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
     let mut extern_adc_value: [u8; 2] = [0; 2];
-
+    let mut dlhr_data: [u8; 8] = [0; 8];
     loop {
+        //read single shot of data from the DLHR
+        let _ = i2c.write_read(41, &[0xAA], &mut dlhr_data);
+
+        frame = EspTwaiFrame::new_self_reception(device_id, &dlhr_data).unwrap();
+        nb::block!(can.transmit(&frame)).unwrap();
+
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
         spi.read(&mut extern_adc_value).unwrap();
 
@@ -130,6 +139,5 @@ fn main() -> ! {
         let _ = nb::block!(periodic.wait());
         end = time::now();
         println!("{}", end - start);
-        //average of 9878.17 us of extra computational time
     }
 }
