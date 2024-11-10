@@ -102,7 +102,7 @@ fn main() -> ! {
     let mut frame: EspTwaiFrame;
     let mut extern_adc_value: [u8; 2] = [2; 2];
     let mut dlhr_data: [u8; 8] = [0; 8];
-
+    let mut spi_test: [u8; 8] = [5; 8];
     loop {
         //read single shot of data from the DLHR
         let _ = i2c.write_read(41, &[0xAC], &mut dlhr_data);
@@ -111,6 +111,9 @@ fn main() -> ! {
         nb::block!(can.transmit(&frame)).unwrap();
 
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
+
+        spi.write_bytes(&spi_test);
+
         cs_output.toggle();
         extern_adc_value[0] = spi.read_byte().unwrap();
         extern_adc_value[1] = spi.read_byte().unwrap();
