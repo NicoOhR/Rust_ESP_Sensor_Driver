@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-
 use core::cmp::min;
 use esp_backtrace as _;
 use esp_hal::dma_buffers;
@@ -32,28 +31,20 @@ fn main() -> ! {
 
     let mut i2c = I2c::new(peripherals.I2C0, io.pins.gpio11, io.pins.gpio10, 100.kHz());
 
-    //SPI and DMA config
+    //SPI
     let sclk = io.pins.gpio0;
     let miso = io.pins.gpio6;
     let mosi = io.pins.gpio8;
     let cs = io.pins.gpio5;
-    let dma = Dma::new(peripherals.DMA);
-    let dma_channel = dma.channel0;
-    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(32000);
-    let mut dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
-    let mut dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
 
     let mut spi = Spi::new(peripherals.SPI2, 100.kHz(), SpiMode::Mode0)
         .with_sck(sclk)
         .with_mosi(mosi)
-        .with_miso(miso)
-        .with_cs(cs)
-        .with_dma(dma_channel.configure(false, DmaPriority::Priority0))
-        .with_buffers(dma_rx_buf, dma_tx_buf);
+        .with_miso(miso);
 
     // test input for the PCNT
     let mut test_gpio = Output::new(io.pins.gpio9, Level::High);
-
+    let mut cs_output = Output::new(cs, Level::High);
     //ADC Configuration
     type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
     let analog_pin = io.pins.gpio3;
@@ -61,7 +52,6 @@ fn main() -> ! {
     let mut adc1_pin =
         adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::Attenuation11dB);
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
-
     //CAN configuration
     let can_tx_pin = io.pins.gpio2;
     let can_rx_pin = can_tx_pin.peripheral_input(); //loopback for testing
@@ -110,18 +100,22 @@ fn main() -> ! {
     let mut start: esp_hal::time::Instant;
     let mut end: esp_hal::time::Instant;
     let mut frame: EspTwaiFrame;
-    let mut extern_adc_value: [u8; 2] = [0; 2];
+    let mut extern_adc_value: [u8; 2] = [2; 2];
     let mut dlhr_data: [u8; 8] = [0; 8];
+
     loop {
         //read single shot of data from the DLHR
         let _ = i2c.write_read(41, &[0xAC], &mut dlhr_data);
-        println!("{:?}", &dlhr_data);
+        //println!("{:?}", &dlhr_data);
         frame = EspTwaiFrame::new_self_reception(device_id, &dlhr_data).unwrap();
         nb::block!(can.transmit(&frame)).unwrap();
 
         pin_value = nb::block!(adc1.read_oneshot(&mut adc1_pin)).unwrap();
-        spi.read(&mut extern_adc_value).unwrap();
-
+        cs_output.toggle();
+        extern_adc_value[0] = spi.read_byte().unwrap();
+        extern_adc_value[1] = spi.read_byte().unwrap();
+        cs_output.toggle();
+        println!("{:?}", extern_adc_value);
         for _ in 0..5 {
             test_gpio.toggle(); //testing PCNT
         }
